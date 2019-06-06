@@ -18,19 +18,18 @@ resource "aws_s3_bucket_public_access_block" "devaccess" {
   block_public_policy = true
 }
 
-# backend terraform on bucket
-terraform {
-  backend "s3" {
-    depends_on = ["aws_s3_bucket.terraformstate"]
-    bucket = "${aws_s3_bucket.terraformstate.id}"
-    key = "dev/sam"
-    region = "${var.AWS_REGION}"
-  }
-}
+# backend terraform on bucket (along with terraform init)
+# terraform {
+#   backend "s3" {
+#     bucket = "terraform-state-samcn26"
+#     key = "dev/sam"
+#     region = "us-east-1"
+#   }
+# }
 
 # keypair
 resource "aws_key_pair" "devkey" {
-  key_name = "${aws_key_pair.devkey}"
+  key_name = "devkey"
   public_key ="${file("${var.PATH_TO_PUBLIC_KEY}")}"
 }
 
@@ -41,7 +40,7 @@ resource "aws_security_group" "devlocal" {
     from_port = 0
     to_port = 65535
     protocol = "tcp"
-    cidr_blocks = ["123.226.244.84/32"]
+    cidr_blocks = ["123.226.244.84/32","124.41.90.10/32"]
   }
   egress {
     from_port = 0
@@ -55,13 +54,14 @@ resource "aws_security_group" "devlocal" {
 resource "aws_instance" "devec2" {
   ami = "${lookup(var.AMIS, var.AWS_REGION)}"
   instance_type = "t2.micro"
+  key_name = "${aws_key_pair.devkey.key_name}"
   tags = {
     Name = "devec2"
   }
-  security_groups = "${aws_security_group.devlocal}"
+  security_groups = ["${aws_security_group.devlocal.name}"]
   provisioner "file" {
     source = "install.sh"
-    desitination = "/tmp/install.sh"
+    destination = "/tmp/install.sh"
   }
 
   provisioner "remote-exec" {
